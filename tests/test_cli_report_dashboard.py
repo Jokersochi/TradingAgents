@@ -1,9 +1,7 @@
 """Smoke and security checks for the local, read-only report dashboard."""
 
-from http.server import ThreadingHTTPServer
-from threading import Thread
-from urllib.error import HTTPError
-from urllib.request import Request, urlopen
+from io import BytesIO
+from unittest.mock import Mock
 
 import pytest
 
@@ -73,29 +71,41 @@ def test_symlinked_reports_cannot_escape_results_directory(tmp_path):
     assert discover_runs(root) == []
 
 
+def _handle(results_dir, path, method="GET"):
+    """Exercise the HTTP router without a socket (the suite forbids all network)."""
+    handler_type = make_handler(results_dir)
+    handler = object.__new__(handler_type)
+    handler.path = path
+    handler.wfile = BytesIO()
+    handler.send_response = Mock()
+    handler.send_header = Mock()
+    handler.end_headers = Mock()
+    handler.send_error = Mock()
+    if method == "GET":
+        handler.do_GET()
+    else:
+        handler.do_POST()
+    return handler
+
+
 @pytest.mark.unit
 def test_http_viewer_serves_only_safe_reports_and_rejects_post(tmp_path):
     _report(tmp_path)
-    handler = make_handler(tmp_path)
-    with ThreadingHTTPServer(("127.0.0.1", 0), handler) as server:
-        worker = Thread(target=server.serve_forever, daemon=True)
-        worker.start()
-        base = f"http://127.0.0.1:{server.server_port}"
-        try:
-            with urlopen(base + "/", timeout=3) as response:
-                assert response.status == 200
-                assert "AAPL" in response.read().decode()
-                assert "frame-ancestors 'none'" in response.headers["Content-Security-Policy"]
-            with urlopen(base + "/report/AAPL_20261108", timeout=3) as response:
-                assert response.status == 200
-                assert b"<title>Report</title>" in response.read()
-            for path in ("/report/%2e%2e", "/report/..%2foutside", "/missing"):
-                with pytest.raises(HTTPError) as error:
-                    urlopen(base + path, timeout=3)
-                assert error.value.code == 404
-            with pytest.raises(HTTPError) as error:
-                urlopen(Request(base + "/", method="POST"), timeout=3)
-            assert error.value.code == 405
-        finally:
-            server.shutdown()
-            worker.join(timeout=3)
+
+    index = _handle(tmp_path, "/")
+    index.send_response.assert_called_once_with(200)
+    assert b"AAPL" in index.wfile.getvalue()
+    headers = [call.args for call in index.send_header.call_args_list]
+    assert any(name == "Content-Security-Policy" and "frame-ancestors 'none'" in value
+               for name, value in headers)
+
+    report = _handle(tmp_path, "/report/AAPL_20261108")
+    report.send_response.assert_called_once_with(200)
+    assert b"<title>Report</title>" in report.wfile.getvalue()
+
+    for path in ("/report/%2e%2e", "/report/..%2foutside", "/missing"):
+        missing = _handle(tmp_path, path)
+        missing.send_error.assert_called_once_with(404)
+
+    post = _handle(tmp_path, "/", "POST")
+    post.send_error.assert_called_once_with(405)
