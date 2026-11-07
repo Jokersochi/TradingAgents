@@ -6,6 +6,7 @@ It binds to the loopback interface, not to a publicly accessible address.
 
 import argparse
 import os
+from contextlib import suppress
 from datetime import datetime
 from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -219,10 +220,8 @@ def main(argv: list[str] | None = None) -> None:
     with ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(args.results_dir)) as server:
         print(f"TradingAgents report monitor: http://127.0.0.1:{server.server_port}")
         print(f"Read-only results directory: {args.results_dir / 'reports'}")
-        try:
+        with suppress(KeyboardInterrupt):
             server.serve_forever()
-        except KeyboardInterrupt:
-            pass
 
 
 if __name__ == "__main__":
