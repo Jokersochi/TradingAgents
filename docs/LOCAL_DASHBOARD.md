@@ -20,9 +20,10 @@
 
 ## Установка и создание первого анализа
 
-Требуется Python 3.11+. В отдельном PowerShell:
+Требуется Python 3.11+. Пока PR не объединён с main, клонируйте ветку PR:
+В отдельном PowerShell:
 
-    git clone https://github.com/Jokersochi/TradingAgents.git
+    git clone --branch feature/read-only-run-dashboard https://github.com/Jokersochi/TradingAgents.git
     cd TradingAgents
     python -m venv .venv
     .\.venv\Scripts\Activate.ps1
