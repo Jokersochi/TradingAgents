@@ -1,0 +1,44 @@
+name: Paper preview (offline, no credentials)
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/paper-preview.yml"
+      - "scripts/make_offline_preview.py"
+      - "tradingagents/**"
+      - "pyproject.toml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-paper-preview:
+    name: Offline graph tests and HTML preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TRADINGAGENTS_NO_UPDATE_CHECK: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+      - name: Verify offline agent graph and report rendering
+        run: python -m pytest -q tests/test_graph_end_to_end.py tests/test_report_html.py
+      - name: Build synthetic UI preview without APIs
+        run: python scripts/make_offline_preview.py
+      - name: Upload HTML preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-preview-html
+          path: preview/paper-demo/
+          retention-days: 7
+          if-no-files-found: error
