@@ -1,5 +1,6 @@
 """Smoke and security checks for the local, read-only report dashboard."""
 
+from http.server import ThreadingHTTPServer
 from threading import Thread
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -7,8 +8,6 @@ from urllib.request import Request, urlopen
 import pytest
 
 from cli.report_dashboard import discover_runs, make_handler, render_index
-
-from http.server import ThreadingHTTPServer
 
 
 def _report(results, name="AAPL_20261108", ticker="AAPL", rating="Hold"):
