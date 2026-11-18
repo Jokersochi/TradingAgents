@@ -31,6 +31,7 @@ def _log(root):
     path = folder / "message_tool.log"
     path.write_text(
         "02:55 [Tool Call] get_stock_data(start_date=2026-11-06, end_date=2026-11-13)\n"
+        "02:55 [Tool Call] get_verified_market_snapshot(curr_date=2026-11-13)\n"
         "02:55 [Data] ## atr values from 2026-10-14 to 2026-11-13: 2026-11-13: 8.21\n"
         "02:55 [Data] ## close_200_sma values from 2026-10-14 to 2026-11-13: "
         "2026-11-13: 300.77\n",
