@@ -13,6 +13,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import quote, unquote, urlsplit
 
+from cli.report_quality import assess_saved_run
+
 STAGES = (
     ("Аналитики", "1_analysts"),
     ("Исследование", "2_research"),
@@ -62,6 +64,9 @@ p { margin:8px 0; color:var(--muted); }
 .dot { display:block; flex:1; height:5px; background:#38425b; border-radius:5px; }
 .dot.done { background:var(--accent); }
 .open { color:var(--accent); font-weight:600; margin-top:18px; }
+.quality { margin-top:14px; font-size:12px; color:var(--muted); }
+.quality.warning { color:#ffd7a5; }
+.quality ul { margin:5px 0 0; padding-left:18px; }
 .empty { border:1px dashed var(--line); padding:30px; border-radius:16px; }
 footer { color:var(--muted); margin-top:40px; font-size:12px; }
 @media(max-width:750px) { main{padding:22px 15px 55px;} header{display:block;}
@@ -107,6 +112,7 @@ def discover_runs(results_dir: Path) -> list[dict]:
         markdown = folder / "complete_report.md"
         fields = _header_fields(markdown) if markdown.resolve().is_relative_to(root) else {}
         mtime = page.stat().st_mtime
+        quality = assess_saved_run(folder, results_dir, fields.get("ticker", ""), fields.get("Analysis date", ""))
         runs.append({
             "slug": folder.name,
             "ticker": fields.get("ticker") or folder.name,
@@ -116,6 +122,7 @@ def discover_runs(results_dir: Path) -> list[dict]:
             "modified": mtime,
             "stages": [bool((folder / name).is_dir() and any((folder / name).glob("*.md"))) for _, name in STAGES],
             "page": page,
+            "quality": quality,
         })
     runs.sort(key=lambda run: run["modified"], reverse=True)
     return runs[:MAX_REPORTS]
@@ -128,6 +135,14 @@ def render_index(runs: list[dict]) -> str:
             f'<span class="dot{" done" if done else ""}" title="{escape(name, quote=True)}: {"готов" if done else "нет отчёта"}"></span>'
             for (name, _), done in zip(STAGES, run["stages"], strict=True)
         )
+        quality = run["quality"]
+        if quality.status == "issues":
+            details = "".join("<li>" + escape(issue) + "</li>" for issue in quality.issues)
+            quality_html = '<div class="quality warning">Автопроверка: есть замечания<ul>' + details + "</ul></div>"
+        elif quality.status == "screened":
+            quality_html = '<div class="quality">Автопроверка: явных несоответствий не найдено</div>'
+        else:
+            quality_html = '<div class="quality">Автопроверка неполная: данные запуска не сопоставлены</div>'
         cards.append(
             '<a class="card" href="/report/' + quote(run["slug"], safe="") + '">'
             '<div class="head"><span class="ticker">' + escape(run["ticker"]) + '</span>'
@@ -135,7 +150,8 @@ def render_index(runs: list[dict]) -> str:
             '<div class="meta">Дата анализа: ' + escape(run["date"]) + '<br>'
             'Сформировано: ' + escape(run["generated"]) + '</div>'
             '<div class="stages" aria-label="Наличие отчётов по пяти этапам">' + dots + '</div>'
-            '<div class="open">Открыть отчёт →</div></a>'
+            + quality_html
+            + '<div class="open">Открыть отчёт →</div></a>'
         )
     if not cards:
         cards.append(
@@ -165,7 +181,7 @@ def render_index(runs: list[dict]) -> str:
 <div class="metric"><b>30 с</b><span>обновление страницы</span></div></div></section>
 <h2>Как принимается решение</h2><section class="flow" aria-label="Пять этапов анализа">{flow}</section>
 <h2>Сохранённые анализы</h2><section class="grid">{"".join(cards)}</section>
-<footer>Только чтение · источник: локальные complete_report.html · без ордеров и брокерских подключений</footer>
+<footer>Только чтение · автоматическая проверка эвристическая, не подтверждает достоверность прогноза или инвестиционную пригодность · без ордеров</footer>
 </main></body></html>"""
 
 
