@@ -65,6 +65,10 @@ def assess_saved_run(folder: Path, logs_root: Path, ticker: str, date: str) -> Q
                 source = _read_file(log, MAX_LOG_CHARS)
                 if source is not None and len(source) <= MAX_LOG_CHARS:
                     matched_log = True
+                    if not re.search(r"\[Tool Call\] get_stock_data\(", source):
+                        issues.append("Нет подтверждённого вызова инструмента котировок")
+                    if not re.search(r"\[Tool Call\] get_verified_market_snapshot\(", source):
+                        issues.append("Не вызван инструмент проверки рыночного снимка")
                     for indicator, label in (("atr", "ATR"), ("close_200_sma", "200 SMA")):
                         data = re.search(
                             rf"## {re.escape(indicator)} values from [^\n]*{re.escape(date)}:",
