@@ -111,6 +111,8 @@ The selected analysts work at the same time, each on its own tools, and the rese
 
 ## Installation and CLI
 
+**Local read-only dashboard:** See [PAPER report monitor](docs/LOCAL_DASHBOARD.md) to browse saved analysis runs and their five agent stages in your browser (localhost only; no trading execution).
+
 ### Installation
 
 Clone TradingAgents:
