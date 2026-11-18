@@ -4,9 +4,9 @@ This checks basic completeness and a few verifiable contradictions. It never
 calls an LLM, fetches market data, places orders, or modifies local files.
 """
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
-import re
 
 MAX_MARKET_CHARS = 150_000
 MAX_LOG_CHARS = 750_000
